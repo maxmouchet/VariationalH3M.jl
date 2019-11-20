@@ -1,0 +1,9 @@
+name = "VHEM"
+uuid = "be869012-f1ee-4d1b-ac0c-66b7016f7c90"
+authors = ["Maxime Mouchet <max@maxmouchet.com>"]
+version = "0.1.0"
+
+[deps]
+Distributions = "31c24e10-a181-5473-b8eb-7969acd0382f"
+HMMBase = "b2b3ca75-8444-5ffa-85e6-af70e2b64fe7"
+StatsFuns = "4c63d2b9-4356-54db-8cca-17b64c39e42c"
