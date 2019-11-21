@@ -7,3 +7,8 @@ version = "0.1.0"
 Distributions = "31c24e10-a181-5473-b8eb-7969acd0382f"
 HMMBase = "b2b3ca75-8444-5ffa-85e6-af70e2b64fe7"
 StatsFuns = "4c63d2b9-4356-54db-8cca-17b64c39e42c"
+
+[compat]
+Distributions = "0.21.0"
+HMMBase = "1.0.0"
+StatsFuns = "0.9.0"
