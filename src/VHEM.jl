@@ -259,14 +259,17 @@ function vhem_step(base::H3M, reduced::H3M, τ::Integer, N::Integer)
     end
     
     # Compute optimal assignment probabilities
-    z = zeros(length(base.M), length(reduced.M))
+    logz = zeros(length(base.M), length(reduced.M))
 
     for (i, ωi) in enumerate(base.ω)
         for (j, ωj) in enumerate(reduced.ω)
-            z[i,j] = ωj * exp(N * ωi * lhmm[i,j])
+            logz[i,j] = log(ωj) + (N * ωi * lhmm[i,j])
         end
-        z[i,:] ./= sum(z[i,:])
+        logz[i,:] .-= logsumexp(logz[i,:])
     end
+    
+    # TODO: Use log below instead ?
+    z = exp.(logz)
     
     ## M-step
     
