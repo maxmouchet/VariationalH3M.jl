@@ -1,10 +1,13 @@
 module VHEM
 
+using ArgCheck
 using Distributions
 using StatsFuns
 using HMMBase
 
-export lowerbound, lowerbound_mc, vardists, vhem_step, H3M
+import Base: OneTo, length
+
+export lowerbound, vhem_step, H3M
 
 """
 Expectation of a gaussian wrt. another gaussian
@@ -15,30 +18,39 @@ function lowerbound(a::Normal, b::Normal)
     -(1/2) * (log2π + log(b.σ^2) + (a.σ^2 / b.σ^2) + ((b.μ - a.μ)^2 / b.σ^2))
 end
 
-function vardists(a::MixtureModel, b::MixtureModel)
+function lowerbound(a::MixtureModel, b::MixtureModel)
     I, J = ncomponents(a), ncomponents(b)
-    
+
+    # Optimal lower-bound to the expected log-likelihood
+    lb = 0.0
+
     # Expected log-likelihoods
-    E = zeros(I, J)
-    for (i, ai) in enumerate(a.components)
-        for (j, bj) in enumerate(b.components)
-            E[i,j] = lowerbound(ai, bj)
-        end
-    end
+    logl = Matrix{Float64}(undef, (I, J))
 
     # η[i,j]: probability that an observation from
     # component i of a corresponds to component j of b
-    # ηl = log η
-    ηl = zeros(I, J)
+    logη = Matrix{Float64}(undef, (I, J))
 
-    for i in 1:I
-        for j in 1:J
-            ηl[i,j] = log(b.prior.p[j]) + E[i,j]
+    # Type annotation is important for performane
+    # otherwiser the compiler infers `Any`.
+    logp::Vector{Float64} = log.(b.prior.p::Vector{Float64})
+
+    for (i, ai) in enumerate(a.components)
+        for (j, bj) in enumerate(b.components)
+            logl[i,j] = lowerbound(ai, bj)
+            logη[i,j] = logp[j] + logl[i,j]
         end
-        ηl[i,:] .-= logsumexp(ηl[i,:])
+        logη[i,:] .-= logsumexp(logη[i,:])
     end
 
-    E, ηl
+    for i in OneTo(I)
+        p::Float64 = (a.prior.p::Vector{Float64})[i]
+        for j in OneTo(J)
+            lb += p * exp(logη[i,j]) * (logp[j] - logη[i,j] + logl[i,j])
+        end
+    end
+
+    logl, logη, lb
 end
 
 """
@@ -46,116 +58,75 @@ Variational lower bound to the expected log-likelihood.
 
 Coviello 14, Hershey 07.
 """
-function lowerbound(a::MixtureModel, b::MixtureModel, E::AbstractMatrix, ηl::AbstractMatrix)
-    I, J = size(ηl)
+function lowerbound(hmm1::HMM, hmm2::HMM, lgmm::Matrix{Float64}, τ::Integer)
+    @argcheck size(hmm1, 1) == size(lgmm, 1)
+    @argcheck size(hmm2, 1) == size(lgmm, 2)
+    @argcheck τ >= 0
 
-    # Optimal lower bound to expected log-likelihood
-    LL = 0.0
-    for i in 1:I
-        ll = 0.0
-        # TODO: logsumexp instead ?
-        for j in 1:J
-            ll += exp(ηl[i,j]) * (log(b.prior.p[j]) - ηl[i,j] + E[i,j])
-        end
-        LL += a.prior.p[i] * ll
-    end
-    
-    LL
-end
-
-function lowerbound(a::MixtureModel, b::MixtureModel)
-    E, ηl = vardists(a, b)
-    lowerbound(a, b, E, ηl)
-end
-
-"""
-Variational lower bound to the expected log-likelihood.
-
-Coviello 14, Hershey 07.
-"""
-function lowerbound(hmm1::HMM, hmm2::HMM, τ::Integer)
-    # TODO: Scaling / Numerical stability of this
     K, L = size(hmm1, 1), size(hmm2, 1)
-    
-#     # Lower-bound on the states observations distributions log-likelihood
-#     LLO = zeros(K, L)
-#     for i in 1:K, j in 1:L
-#         LLO[i,j] = lowerbound(hmm1.B[i], hmm2.B[j])
-#     end
-    
-#     # zt-1 -> zt, ii -> i, jj -> j
-#     LL = zeros(T+1, K, L)
-#     ϕl = zeros(T, L, K, L)
 
-#     for t in T:-1:2
-#         for ii in 1:K
-#             for jj in 1:L
-#                 for i in 1:K
-#                     ϕl[t,ii,]
-#                 end
-#             end
-#         end
-#     end
+    # Optimal lower-bound to the expected log-likelihood
+    lhmm = 0.0
 
-    LGMM = zeros(K, L)
-    for β in 1:K, ρ in 1:L
-        LGMM[β,ρ] = lowerbound(hmm1.B[β], hmm2.B[ρ])
-    end
+    # logl[t,βp,ρp]
+    logl = zeros(τ+1, K, L)
 
-    LL = zeros(τ+1, K, L)
+    # logϕ[t,β,ρp,ρ]
+    logϕ = zeros(τ, K, L, L)
+
+    # logϕ1[β,ρ]
+    # TODO: Merge with logϕ (ignore previous state for t = 1) ?
+    logϕ1 = zeros(K, L)
+
+    # Initial probabilities (π in the paper)
+    # Transition matrices (a or A in the paper)
+    loga2 = log.(hmm2.a)
+    logA2 = log.(hmm2.A)
+
+    # Appendix B. (p. 737)
+    # β  = β_t
+    # βp = β_{t-1}
+
     for t in τ:-1:2
-        for βp in 1:K
+        for β in 1:K
             for ρp in 1:L
-                for β in 1:K
-                    # TODO: Reuse ϕl instead, and compute in a single pass
-                    ll = logsumexp([log(hmm2.A[ρp,ρ]) + LGMM[β,ρ] + LL[t+1, β, ρ] for ρ in 1:L])
-                    LL[t, βp, ρp] += hmm1.A[βp,β] * ll
-                end
-            end
-        end
-    end
-
-    ϕl = zeros(τ, L, K, L)
-    for t in τ:-1:2
-        for ρp in 1:L
-            for β in 1:K
                 for ρ in 1:L
-                    ϕl[t,ρp,β,ρ] = log(hmm2.A[ρp,ρ]) + LGMM[β,ρ] + LL[t+1, β, ρ]
+                    logϕ[t,β,ρp,ρ] = logA2[ρp,ρ] + lgmm[β,ρ] + logl[t+1,β,ρ]
                 end
-                ϕl[t,ρp,β,:] .-= logsumexp(ϕl[t,ρp,β,:])
+
+                norm = logsumexp(logϕ[t,β,ρp,:])
+                logϕ[t,β,ρp,:] .-= norm
+
+                for βp in 1:K
+                    logl[t,βp,ρp] += hmm1.A[βp,β] * norm
+                end
             end
         end
     end
 
-    ϕl1 = zeros(K, L)
     for β in 1:K
         for ρ in 1:L
-            ϕl1[β,ρ] = log(hmm2.a[ρ]) + LGMM[β,ρ] + LL[2, β, ρ]
+            logϕ1[β,ρ] = loga2[ρ] + lgmm[β,ρ] + logl[2,β,ρ]
         end
-        ϕl1[β,:] .-= logsumexp(ϕl1[β,:])
+
+        norm = logsumexp(logϕ1[β,:])
+        logϕ1[β,:] .-= norm
+
+        lhmm += hmm1.a[β] * norm
     end
-    
-    LLfinal = 0.0
-    for β in 1:K
-        ll = logsumexp([log(hmm2.a[ρ]) + LGMM[β,ρ] + LL[2, β, ρ] for ρ in 1:L])
-        LLfinal += hmm1.a[β] * ll
-    end
-    
-    LLfinal, ϕl, ϕl1
+
+    lhmm, logϕ, logϕ1
 end
 
-function lowerbound_mc(a::Distribution, b::Distribution, N = 10^6)
-    mean(logpdf.(b, rand(a, N)))
-end
-
-function lowerbound_mc(a::HMM, b::HMM, N, T)
-    mean([forward(b, rand(a, T), logl = true, robust = true)[2] for _ in 1:N])
-end
-
-struct H3M
-    M::Vector{HMM}
+struct H3M{T}
+    M::Vector{T}
     ω::Vector{Float64}
 end
+
+# TODO: argcheck length
+# TODO: isprobvec check
+
+length(m::H3M) = length(m.M)
 
 function Ω(f, b::H3M, j::Integer, ρ::Integer, z::AbstractMatrix, νagg)
     tot = 0.0
@@ -173,7 +144,7 @@ function Ω(f, b::H3M, j::Integer, ρ::Integer, z::AbstractMatrix, νagg)
     tot
 end
 
-function vhem_step(base::H3M, reduced::H3M, τ::Integer, N::Integer)
+function vhem_step(base::H3M{Z}, reduced::H3M{Z}, τ::Integer, N::Integer) where Z
     ## Expectations
     # logη[i,j][β,ρ][m,l]
     logη = Dict{Tuple{Int,Int}, Dict{Tuple{Int,Int}, Matrix{Float64}}}()
@@ -212,48 +183,45 @@ function vhem_step(base::H3M, reduced::H3M, τ::Integer, N::Integer)
 
             for (β, Miβ) in enumerate(Mi.B)
                 for (ρ, Mjρ) in enumerate(Mj.B)
-                    E, logη[i,j][β,ρ] = vardists(Miβ, Mjρ)
-                    lgmm[i,j][β,ρ] = lowerbound(Miβ, Mjρ, E, logη[i,j][β,ρ])
+                    _, logη[i,j][β,ρ], lgmm[i,j][β,ρ] = lowerbound(Miβ, Mjρ)
                 end
             end
+
+            lhmm[i,j], logϕ, logϕ1 = lowerbound(Mi, Mj, lgmm[i,j], τ)
             
-            # TODO: Optimize by not recomputing lgmm, ...
-            lhmm[i,j], logϕ, logϕ1 = lowerbound(Mi, Mj, τ)
-            
+            # Initial probabilities (π in the paper)
+            # Transition matrices (a or A in the paper)
+            logai = log.(Mi.a)
+            logAi = log.(Mi.A)
+
             ## Summary statistics
-            logν[i,j]  = zeros(τ, Kj, Ki)
-            logξ[i,j]  = zeros(τ, Kj, Kj, Ki)
+            logν[i,j] = zeros(τ, Kj, Ki)
+            logξ[i,j] = zeros(τ, Kj, Kj, Ki)
             
             ## Aggregate summaries
             νagg1[i,j] = zeros(Kj)
             νagg[i,j]  = zeros(Kj,Ki)
             ξagg[i,j]  = zeros(Kj,Kj)
 
-            for ρ in 1:Kj, β in 1:Ki
-                logν[i,j][1,ρ,β] = log(Mi.a[β]) + logϕ1[β,ρ]
-            end
-            
-            for t in 2:τ
-                for ρp in 1:Kj, ρ in 1:Kj, β in 1:Ki
-                    logtmp = logsumexp([logν[i,j][t-1,ρp,βp] + log(Mi.A[βp,β]) for βp in 1:Ki])
-                    logξ[i,j][t,ρp,ρ,β] = logtmp + logϕ[t,ρp,β,ρ]
-                end
-                
-                for ρ in 1:Kj, β in 1:Ki
-                    logν[i,j][t,ρ,β] = logsumexp(logξ[i,j][t,:,ρ,β])
-                end
-            end
-            
-            for ρ in 1:Kj
-                νagg1[i,j][ρ] = sum(exp.(logν[i,j][1,ρ,:]))
-            end
-            
-            for ρ in 1:Kj, β in 1:Ki
-                νagg[i,j][ρ,β] = sum(exp.(logν[i,j][:,ρ,β]))
+            for ρ in OneTo(Kj), β in OneTo(Ki)
+                logν[i,j][1,ρ,β] = logai[β] + logϕ1[β,ρ]
+                νagg1[i,j][ρ]  += exp(logν[i,j][1,ρ,β])
+                νagg[i,j][ρ,β] += exp(logν[i,j][1,ρ,β])
             end
 
-            for ρp in 1:Kj, ρ in 1:Kj
-                ξagg[i,j][ρp,ρ] = sum(exp.(logξ[i,j][:,ρp,ρ,:]))
+            for t in 2:τ
+                for ρ in OneTo(Kj)
+                    for β in OneTo(Ki)
+                        for ρp in OneTo(Kj)
+                            # TODO: Memory access patterns!
+                            logtmp = logsumexp([logν[i,j][t-1,ρp,βp] + logAi[βp,β] for βp in OneTo(Ki)])
+                            logξ[i,j][t,ρp,ρ,β] = logtmp + logϕ[t,β,ρp,ρ]
+                            ξagg[i,j][ρp,ρ] += exp(logξ[i,j][t,ρp,ρ,β])
+                        end
+                        logν[i,j][t,ρ,β] = logsumexp(logξ[i,j][t,:,ρ,β])
+                        νagg[i,j][ρ,β] += exp(logν[i,j][t,ρ,β])
+                    end
+                end
             end
         end
     end
@@ -267,46 +235,71 @@ function vhem_step(base::H3M, reduced::H3M, τ::Integer, N::Integer)
         end
         logz[i,:] .-= logsumexp(logz[i,:])
     end
-    
-    # TODO: Use log below instead ?
-    z = exp.(logz)
-    
-    ## M-step
-    
-    # 1. Compute H3M weights
-    newω = sum(z, dims = 1)[:]
-    newω ./= sum(newω)
-    
-    # 2. Compute H3M models
-    newM = HMM[]
 
-    for (j, (Mj, ωj)) in enumerate(zip(reduced.M, reduced.ω))
-        Kj = size(Mj,1)
-        
+    # TODO: Use log below instead ?
+    # This would require to compute aggregate statistics in log also...
+    z = exp.(logz)
+
+    ## M-step
+
+    # 1. Compute H3M weights
+    newω = zeros(length(reduced))
+    norm = 0.0
+    
+    for j in OneTo(length(reduced)), i in OneTo(length(base))
+        newω[j] += z[i,j]
+        norm += z[i,j]
+    end
+
+    for j in OneTo(length(reduced))
+        newω[j] /= norm
+    end
+
+    # 2. Compute H3M models
+    newM = Vector{Z}(undef, length(reduced))
+
+    for j in OneTo(length(reduced))
+        Mj, ωj = reduced.M[j], reduced.ω[j]
+        Kj = size(Mj, 1)
+
         # 2.a Compute initial probabilities
         newa = zeros(Kj)
-        for ρ in 1:Kj, (i, ωi) in enumerate(base.ω)
-            newa[ρ] += z[i,j] * ωi * νagg1[i,j][ρ]
+        norm = 0.0
+
+        for ρ in OneTo(Kj)
+            for i in OneTo(length(base))
+                newa[ρ] += z[i,j] * base.ω[i] * νagg1[i,j][ρ]
+            end
+            norm += newa[ρ]
         end
-        newa ./= sum(newa)
-        
+
+        newa /= norm
+
         # 2.b Compute transition matrix
         newA = zeros(Kj, Kj)
 
-        for ρ in 1:Kj
-            for ρp in 1:Kj, (i, ωi) in enumerate(base.ω)
-                newA[ρ,ρp] += z[i,j] * ωi * ξagg[i,j][ρ,ρp]
+        for ρ in OneTo(Kj)
+            norm = 0.0
+            for ρp in OneTo(Kj)
+                for i in OneTo(length(base))
+                    newA[ρ,ρp] += z[i,j] * base.ω[i] * ξagg[i,j][ρ,ρp]
+                end
+                norm += newA[ρ,ρp]
             end
-            newA[ρ,:] ./= sum(newA[ρ,:])
+
+            for ρp in OneTo(Kj)
+                newA[ρ,ρp] /= norm
+            end
         end
-        
+
         # 2.c Compute observation mixtures
-        newB = UnivariateDistribution[]
+        newB = Vector{UnivariateDistribution}(undef, Kj)
 
         for (ρ, Mjρ) in enumerate(Mj.B)
+            norm = 0.0
             newc = zeros(ncomponents(Mjρ))
-            newd = Normal[]
-    
+            newd = Vector{Normal}(undef, length(Mj.B[ρ].components))
+
             for (l, Mjρl) in enumerate(Mj.B[ρ].components)
                 newc[l] = Ω(base, j, ρ, z, νagg) do i, β, m
                     exp.(logη[i,j][β,ρ][m,l])
@@ -320,18 +313,19 @@ function vhem_step(base::H3M, reduced::H3M, τ::Integer, N::Integer)
                     exp.(logη[i,j][β,ρ][m,l]) * (base.M[i].B[β].components[m].σ^2 + (base.M[i].B[β].components[m].μ - Mjρl.μ)^2)
                 end
 
-                newμ /= newc[l]
+                newμ  /= newc[l]
                 newσ2 /= newc[l]
+                norm  += newc[l]
 
-                push!(newd, Normal(newμ, sqrt(newσ2)))
+                newd[l] = Normal(newμ, sqrt(newσ2))
             end
             
-            newc /= sum(newc)
-            push!(newB, MixtureModel(newd, newc))
+            newc /= norm
+            newB[ρ] = MixtureModel(newd, newc)
         end
-        
+
         # 2.d Build HMM
-        push!(newM, HMM(newa, newA, newB))
+        newM[j] = HMM(newa, newA, newB)
     end
 
     H3M(newM, newω), lhmm, z
