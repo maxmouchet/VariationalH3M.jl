@@ -6,6 +6,14 @@
 
 Reasonably fast, mostly correct, implementation of the VHEM-H3M (Variational Hierarchical EM - Hidden Markov Mixture Model) for clustering of HMMs (Hidden Markov Models).
 
+**TODO**:
+- Print iterations
+- Stop when converged
+- KM++ init
+- License
+- Literate.jl example
+- RNG Monte Carlo
+
 ## Installation
 
 The package is registered in `METADATA.jl` and so can be installed with `Pkg.add`.
