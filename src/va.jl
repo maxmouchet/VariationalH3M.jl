@@ -110,3 +110,17 @@ function loglikelihood_va(hmm1::HMM, hmm2::HMM, lgmm::Matrix{Float64}, τ::Integ
 
     lhmm, logϕ, logϕ1
 end
+
+function loglikelihood_va(hmm1::HMM, hmm2::HMM, τ::Integer)
+    lgmm = zeros(Ki, Kj)
+    logη = zeros(Ki, Kj)
+
+    for (β, Miβ) in enumerate(hmm1.B)
+        for (ρ, Mjρ) in enumerate(hmm2.B)
+            lgmm[β,ρ], logη[β,ρ] = loglikelihood_va(Miβ, Mjρ)
+        end
+    end
+
+    logη, lgmm, loglikelihood_va(hmm1, hmm2, lgmm, τ)
+end
+
