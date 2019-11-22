@@ -112,8 +112,10 @@ function loglikelihood_va(hmm1::HMM, hmm2::HMM, lgmm::Matrix{Float64}, τ::Integ
 end
 
 function loglikelihood_va(hmm1::HMM, hmm2::HMM, τ::Integer)
+    Ki, Kj = size(hmm1, 1), size(hmm2, 1)
+
+    logη = Dict{Tuple{Int,Int}, Matrix{Float64}}()
     lgmm = zeros(Ki, Kj)
-    logη = zeros(Ki, Kj)
 
     for (β, Miβ) in enumerate(hmm1.B)
         for (ρ, Mjρ) in enumerate(hmm2.B)
