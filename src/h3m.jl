@@ -1,5 +1,5 @@
 """
-    Hidden Markov Mixture Model
+    Hidden Markov Mixture Model.
 """
 struct H3M{T <: AbstractHMM}
     M::Vector{T}

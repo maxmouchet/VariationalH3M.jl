@@ -1,9 +1,8 @@
 # Variational approximations
-
-# Not an approximation
+# (Excepted for loglikelihood(Normal, Normal))
 
 """
-Expectation of a gaussian wrt. another gaussian
+Expectation of the log-likelihood of a gaussian wrt. another gaussian
 (Penny and Roberts, 2000)
 E_{a} L(b)
 """

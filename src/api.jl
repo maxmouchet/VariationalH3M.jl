@@ -1,4 +1,4 @@
-
+# TODO: Move somewhere else
 function loglikelihood(base::H3M, reduced::H3M, z::AbstractMatrix, lhmm::AbstractMatrix, N)
     sum(OneTo(length(base))) do i
         sum(OneTo(length(reduced))) do j

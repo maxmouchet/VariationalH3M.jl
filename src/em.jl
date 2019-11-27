@@ -28,9 +28,7 @@ function vhem_step_E(base::H3M{Z}, reduced::H3M{Z}, τ::Integer, N::Integer) whe
     ## Optimal assignments probabilities
     logz = zeros(length(base.M), length(reduced.M))
 
-    ## E-step
-
-    # TODO: Do computations in local vec/mat and assign to dict after ?
+    # TODO: /Ragged arrays/ instead of dicts ?
     # TODO: "Summary statistics" struct
 
     logωj = log.(reduced.ω)
@@ -105,8 +103,10 @@ function vhem_step_E(base::H3M{Z}, reduced::H3M{Z}, τ::Integer, N::Integer) whe
 end
 
 function vhem_step(base::H3M{Z}, reduced::H3M{Z}, τ::Integer, N::Integer) where Z
-    # E step
+    ## E step
     logz, logη, lhmm, νagg, νagg1, ξagg = vhem_step_E(base, reduced, τ, N)
+
+    # TODO: Use logz below instead ?
     z = exp.(logz)
 
     ## M step
@@ -215,46 +215,3 @@ function Ω(f, b::H3M, j::Integer, ρ::Integer, z::AbstractMatrix, νagg)
     end
     tot
 end
-
-# function logΩ(logf, base::H3M, j::Integer, ρ::Integer, logz::AbstractMatrix, logνagg)
-#     acc1 = LogSumExpAcc()
-
-#     for (i, ωi) in enumerate(base.ω)
-#         acc2 = LogSumExpAcc()
-
-#         for β in 1:size(base.M[i],1)
-#             acc3 = LogSumExpAcc()
-
-#             for (m, c) in enumerate(base.M[i].B[β].prior.p)
-#                 add!(acc3, log(c) + logf(i, β, m))
-#             end
-
-#             # TODO: lognuagg
-#             add!(acc2, log(logνagg[i,j][ρ,β]) + sum(acc3))
-#         end
-
-#         add!(acc1, logz[i,j] + sum(acc2))
-#     end
-
-#     sum(acc1)
-# end
-
-# """
-# In-place update of the `reduced` H3M weights given the responsibilities.
-# """
-# function update_ω!(reduced::H3M{Z}, z::Matrix{Float64}) where Z
-#     I, J = size(z)
-#     c = 0.0
-
-#     for j in OneTo(J)
-#         reduced.ω[j] = 0.0
-#         for i in OneTo(I)
-#             reduced.ω[j] += z[i,j]
-#         end
-#         c += reduced.ω[j]
-#     end
-
-#     for j in OneTo(J)
-#         reduced.ω[j] /= c
-#     end
-# end

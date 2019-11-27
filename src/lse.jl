@@ -1,3 +1,6 @@
+# Implementation of the streaming LogSumExp trick
+# http://www.nowozin.net/sebastian/blog/streaming-log-sum-exp-computation.html
+
 mutable struct LogSumExpAcc{T<:Number}
     m::T # Current maximum value
     s::T # Sum
@@ -6,7 +9,6 @@ end
 LogSumExpAcc() = LogSumExpAcc(-Inf, 0.0)
 
 function add!(acc::LogSumExpAcc{T}, val::T) where T
-    # TODO: Re-evaluate only if causing overflow ?
     if val === -Inf
         return
     elseif val <= acc.m
