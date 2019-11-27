@@ -50,7 +50,7 @@ function vhem_step_E(base::H3M{Z}, reduced::H3M{Z}, τ::Integer, N::Integer) whe
         # Transition matrices (a or A in the paper)
         logai = log.(Mi.a)
         logAi = log.(Mi.A)
-        
+
         logzacc = LogSumExpAcc()
 
         for (j, Mj) in enumerate(reduced.M)
@@ -76,9 +76,9 @@ function vhem_step_E(base::H3M{Z}, reduced::H3M{Z}, τ::Integer, N::Integer) whe
                 νagg[i,j][ρ,β] += exp(logν[1,ρ,β])
             end
 
+            logtmps = zeros(Kj, Ki)
+
             for t in 2:τ
-                # logtmps[ρp,β]
-                logtmps = zeros(Kj, Ki)
                 for β in OneTo(Ki)
                     for ρp in OneTo(Kj)
                         acc = LogSumExpAcc()
@@ -201,15 +201,15 @@ function vhem_step(base::H3M{Z}, reduced::H3M{Z}, τ::Integer, N::Integer) where
 
             for (l, Mjρl) in enumerate(Mj.B[ρ].components)
                 newc[l] = Ω(base, j, ρ, z, νagg) do i, β, m
-                    exp.(logη[i,j][β,ρ][m,l])
+                    exp(logη[i,j][β,ρ][m,l])
                 end
-                
+
                 newμ = Ω(base, j, ρ, z, νagg) do i, β, m
-                    exp.(logη[i,j][β,ρ][m,l]) * base.M[i].B[β].components[m].μ
+                    exp(logη[i,j][β,ρ][m,l]) * base.M[i].B[β].components[m].μ
                 end
                 
                 newσ2 = Ω(base, j, ρ, z, νagg) do i, β, m
-                    exp.(logη[i,j][β,ρ][m,l]) * (base.M[i].B[β].components[m].σ^2 + (base.M[i].B[β].components[m].μ - Mjρl.μ)^2)
+                    exp(logη[i,j][β,ρ][m,l]) * (base.M[i].B[β].components[m].σ^2 + (base.M[i].B[β].components[m].μ - Mjρl.μ)^2)
                 end
 
                 newμ  /= newc[l]

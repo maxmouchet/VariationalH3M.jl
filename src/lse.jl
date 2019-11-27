@@ -6,8 +6,10 @@ end
 LogSumExpAcc() = LogSumExpAcc(-Inf, 0.0)
 
 function add!(acc::LogSumExpAcc{T}, val::T) where T
-    # TODO: Re-evaluate only if causing overflow
-    if val <= acc.m
+    # TODO: Re-evaluate only if causing overflow ?
+    if val === -Inf
+        return
+    elseif val <= acc.m
         acc.s += exp(val - acc.m)
     else
         acc.s *= exp(acc.m - val)
