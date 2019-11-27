@@ -13,5 +13,7 @@ include("mc.jl")
 include("va.jl")
 include("lse.jl")
 include("h3m.jl")
+include("em.jl")
+include("api.jl")
 
 end
