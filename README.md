@@ -28,9 +28,9 @@ pkg> add VHEM_H3M
 using Distributions, HMMBase, VHEM_H3M
 
 # Simulate a dataset of HMMs
-randgmm(K) = MixtureModel([Normal(rand(Normal(0, 10)), 1) for _ 1:K])
-randhmm(K) = HMM(randtransmat(K), [randgmm(rand(1:5)) for _ 1:K])
-base_models = [rand_hmm(rand(1:10)) for _ in 1:100]
+randgmm(K) = MixtureModel([Normal(rand(Normal(0, 10)), 1) for _ in 1:K])
+randhmm(K) = HMM(randtransmat(K), [randgmm(rand(1:5)) for _ in 1:K])
+base_models = [randhmm(rand(1:10)) for _ in 1:100]
 
 # Initialization
 base = H3M(base_models)
