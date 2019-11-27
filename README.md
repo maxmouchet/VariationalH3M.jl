@@ -1,6 +1,6 @@
 # VHEM_H3M
 
-_Reasonably fast_, _mostly correct_, implementation of the VHEM-H3M (Variational Hierarchical EM - Hidden Markov Mixture Model) [1] for clustering of HMMs (Hidden Markov Models).
+_Reasonably fast_, _mostly correct_, implementation of the VHEM-H3M (Variational Hierarchical EM - Hidden Markov Mixture Model) [1] algorithm for clustering of HMMs (Hidden Markov Models).
 
 This is mostly a translation of the equations to Julia code, with the use of log-values to improve numerical stability. It supports HMMs with GMM (Gaussian Mixture Model) emissions. The number of states, and of components per state, can be different between the HMMs. HMMs are specified using the [HMMBase](https://github.com/maxmouchet/HMMBase.jl) package.
 
