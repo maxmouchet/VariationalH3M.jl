@@ -8,7 +8,11 @@ Expectation of a gaussian wrt. another gaussian
 E_{a} L(b)
 """
 function loglikelihood(a::Normal, b::Normal)
-    -(1/2) * (log2π + log(b.σ^2) + (a.σ^2 / b.σ^2) + ((b.μ - a.μ)^2 / b.σ^2))
+    if iszero(b.σ)
+        (a.μ == b.μ) ? Inf : 0
+    else
+        -(1/2) * (log2π + log(b.σ^2) + (a.σ^2 / b.σ^2) + ((b.μ - a.μ)^2 / b.σ^2))
+    end
 end
 
 function loglikelihood_va(a::MixtureModel, b::MixtureModel)
