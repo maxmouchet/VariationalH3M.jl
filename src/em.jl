@@ -104,26 +104,6 @@ function vhem_step_E(base::H3M{Z}, reduced::H3M{Z}, τ::Integer, N::Integer) whe
     logz, logη, lhmm, νagg, νagg1, ξagg
 end
 
-# """
-# In-place update of the `reduced` H3M weights given the responsibilities.
-# """
-# function update_ω!(reduced::H3M{Z}, z::Matrix{Float64}) where Z
-#     I, J = size(z)
-#     c = 0.0
-
-#     for j in OneTo(J)
-#         reduced.ω[j] = 0.0
-#         for i in OneTo(I)
-#             reduced.ω[j] += z[i,j]
-#         end
-#         c += reduced.ω[j]
-#     end
-
-#     for j in OneTo(J)
-#         reduced.ω[j] /= c
-#     end
-# end
-
 function vhem_step(base::H3M{Z}, reduced::H3M{Z}, τ::Integer, N::Integer) where Z
     # E step
     logz, logη, lhmm, νagg, νagg1, ξagg = vhem_step_E(base, reduced, τ, N)
@@ -190,24 +170,14 @@ function vhem_step(base::H3M{Z}, reduced::H3M{Z}, τ::Integer, N::Integer) where
             newd = Vector{Normal}(undef, length(Mj.B[ρ].components))
 
             for (l, Mjρl) in enumerate(Mj.B[ρ].components)
-                # TODO: Log of \nuagg
-                aa = logΩ(base, j, ρ, logz, νagg) do i, β, m
-                    logη[i,j][β,ρ][m,l]
-                end
-                # TMP
-
                 newc[l] = Ω(base, j, ρ, z, νagg) do i, β, m
                     exp(logη[i,j][β,ρ][m,l])
-                end
-
-                if aa != newc[l]
-                    @show aa, log(newc[l])
                 end
 
                 newμ = Ω(base, j, ρ, z, νagg) do i, β, m
                     exp(logη[i,j][β,ρ][m,l]) * base.M[i].B[β].components[m].μ
                 end
-                
+
                 newσ2 = Ω(base, j, ρ, z, νagg) do i, β, m
                     exp(logη[i,j][β,ρ][m,l]) * (base.M[i].B[β].components[m].σ^2 + (base.M[i].B[β].components[m].μ - Mjρl.μ)^2)
                 end
@@ -246,25 +216,45 @@ function Ω(f, b::H3M, j::Integer, ρ::Integer, z::AbstractMatrix, νagg)
     tot
 end
 
-function logΩ(logf, base::H3M, j::Integer, ρ::Integer, logz::AbstractMatrix, logνagg)
-    acc1 = LogSumExpAcc()
+# function logΩ(logf, base::H3M, j::Integer, ρ::Integer, logz::AbstractMatrix, logνagg)
+#     acc1 = LogSumExpAcc()
 
-    for (i, ωi) in enumerate(base.ω)
-        acc2 = LogSumExpAcc()
+#     for (i, ωi) in enumerate(base.ω)
+#         acc2 = LogSumExpAcc()
 
-        for β in 1:size(base.M[i],1)
-            acc3 = LogSumExpAcc()
+#         for β in 1:size(base.M[i],1)
+#             acc3 = LogSumExpAcc()
 
-            for (m, c) in enumerate(base.M[i].B[β].prior.p)
-                add!(acc3, log(c) + logf(i, β, m))
-            end
+#             for (m, c) in enumerate(base.M[i].B[β].prior.p)
+#                 add!(acc3, log(c) + logf(i, β, m))
+#             end
 
-            # TODO: lognuagg
-            add!(acc2, log(logνagg[i,j][ρ,β]) + sum(acc3))
-        end
+#             # TODO: lognuagg
+#             add!(acc2, log(logνagg[i,j][ρ,β]) + sum(acc3))
+#         end
 
-        add!(acc1, logz[i,j] + sum(acc2))
-    end
+#         add!(acc1, logz[i,j] + sum(acc2))
+#     end
 
-    sum(acc1)
-end
+#     sum(acc1)
+# end
+
+# """
+# In-place update of the `reduced` H3M weights given the responsibilities.
+# """
+# function update_ω!(reduced::H3M{Z}, z::Matrix{Float64}) where Z
+#     I, J = size(z)
+#     c = 0.0
+
+#     for j in OneTo(J)
+#         reduced.ω[j] = 0.0
+#         for i in OneTo(I)
+#             reduced.ω[j] += z[i,j]
+#         end
+#         c += reduced.ω[j]
+#     end
+
+#     for j in OneTo(J)
+#         reduced.ω[j] /= c
+#     end
+# end
