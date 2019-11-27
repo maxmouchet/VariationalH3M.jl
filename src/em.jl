@@ -111,21 +111,23 @@ function vhem_step(base::H3M{Z}, reduced::H3M{Z}, τ::Integer, N::Integer) where
 
     # 1. Compute H3M weights
     newω = zeros(length(reduced))
-    norm = 0.0
+    normω = 0.0
     
     for j in OneTo(length(reduced)), i in OneTo(length(base))
         newω[j] += z[i,j]
-        norm += z[i,j]
+        normω += z[i,j]
     end
 
     for j in OneTo(length(reduced))
-        newω[j] /= norm
+        newω[j] /= normω
     end
 
     # 2. Compute H3M models
     newM = Vector{Z}(undef, length(reduced))
 
-    for j in OneTo(length(reduced))
+    # NOTE: Make sure that no variable is capture inside the loop!
+    # That's why we have `normω` above and `norm` below.
+    Threads.@threads for j in OneTo(length(reduced))
         Mj, ωj = reduced.M[j], reduced.ω[j]
         Kj = size(Mj, 1)
 
