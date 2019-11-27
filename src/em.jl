@@ -32,7 +32,9 @@ function vhem_step_E(base::H3M{Z}, reduced::H3M{Z}, τ::Integer, N::Integer) whe
 
     logωj = log.(reduced.ω)
 
-    for (i, Mi) in enumerate(base.M)
+    Threads.@threads for i in OneTo(length(base))
+        Mi = base.M[i]
+
         # Initial probabilities (π in the paper)
         # Transition matrices (a or A in the paper)
         logai = log.(Mi.a)
