@@ -200,6 +200,7 @@ function vhem_step(base::H3M{Z}, reduced::H3M{Z}, τ::Integer, N::Integer) where
     H3M(newM, newω), lhmm, z
 end
 
+# TODO: Cleanup (perform computations in the M-step loop instead ?)
 function Ω(f, b::H3M, j::Integer, ρ::Integer, z::AbstractMatrix, νagg)
     tot = 0.0
     for (i, ωi) in enumerate(b.ω)
