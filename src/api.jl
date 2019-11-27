@@ -12,16 +12,25 @@ function cluster(base::H3M, reduced::H3M, τ::Integer, N::Integer; maxiter = 100
 
     z = zeros(length(base), length(reduced))
     history = EMHistory(false, 0, [])
+
     logtot = -Inf
+    logtotp = logtot
 
     for it in 1:maxiter
-        reduced, lhmm, z = vhem_step(base, reduced, τ, N)
-        logtotp = loglikelihood(base, reduced, z, lhmm, N)
+        try
+            reduced, lhmm, z = vhem_step(base, reduced, τ, N)
+            logtotp = loglikelihood(base, reduced, z, lhmm, N)
+        catch e
+            @error e
+            break
+        end
 
         push!(history.logtots, logtotp)
         history.iterations += 1
 
-        if abs(logtotp - logtot) < tol
+        println("Iteration $it: logtot = $logtotp, diff = $(logtotp - logtot)")
+
+        if logtotp - logtot < tol
             history.converged = true
             break
         end
