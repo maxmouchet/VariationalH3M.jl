@@ -1,4 +1,4 @@
-module VHEM_H3M
+module VariationalH3M
 
 using ArgCheck
 using Distributions

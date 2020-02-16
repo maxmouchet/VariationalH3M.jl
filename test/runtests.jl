@@ -1,7 +1,7 @@
 using Test
 using Distributions
 using HMMBase
-using VHEM_H3M
+using VariationalH3M
 
 import Base: rand
 

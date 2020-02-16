@@ -1,4 +1,4 @@
-name = "VHEM_H3M"
+name = "VariationalH3M"
 uuid = "be869012-f1ee-4d1b-ac0c-66b7016f7c90"
 authors = ["Maxime Mouchet <max@maxmouchet.com>"]
 version = "0.1.0"

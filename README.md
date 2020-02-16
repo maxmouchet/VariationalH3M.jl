@@ -1,4 +1,4 @@
-# VHEM_H3M
+# VariationalH3M
 
 _Reasonably fast_, _mostly correct_, implementation of the VHEM-H3M (Variational Hierarchical EM - Hidden Markov Mixture Model) [1] algorithm for the clustering of HMMs (Hidden Markov Models).
 
@@ -21,11 +21,11 @@ From the Julia REPL, type `]` to enter the Pkg REPL mode and run:
 
 ```julia
 pkg> registry add https://github.com/maxmouchet/JuliaRegistry.git
-pkg> add VHEM_H3M
+pkg> add VariationalH3M
 ```
 
 ```julia
-using Distributions, HMMBase, VHEM_H3M
+using Distributions, HMMBase, VariationalH3M
 
 # Simulate a dataset of HMMs
 randgmm(K) = MixtureModel([Normal(rand(Normal(0, 10)), 1) for _ in 1:K])
@@ -61,5 +61,5 @@ labels = [x.I[2] for x in argmax(z, dims = 2)]
     ├── lse.jl       # Streaming log-sum-exp implementation
     ├── mc.jl        # Monte-Carlo expectations (not used)
     ├── va.jl        # Variational expectations
-    └── VHEM_H3M.jl  # Module definition
+    └── VariationalH3M.jl  # Module definition
 ```
